@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Portal Les Privat Kak Fiona</title>
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: #cbd5e1;
+            --border-light: #e2e8f0;
+            --green-bg: #dcfce7;
+            --green-text: #166534;
+            --red-bg: #fee2e2;
+            --red-text: #991b1b;
+            --yellow-bg: #fef9c3;
+            --yellow-text: #854d0e;
+            --blue-bg: #dbeafe;
+            --blue-text: #1e40af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
+        body {
+            width: 100%;
+            overflow-x: hidden;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        body {
+            padding: 14px 14px calc(110px + env(safe-area-inset-bottom)) 14px;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border-light);
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 2px;
+        }
+
+        h2 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        p.sub {
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-bottom: 14px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #334155;
+        }
+
+        /* Ukuran 16px mencegah auto-zoom di iOS Safari */
+        input,
+        select,
+        textarea {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            padding: 11px 12px;
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            font-size: 16px;
+            margin-bottom: 14px;
+            background-color: #ffffff;
+            color: var(--text);
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        /* Fix khusus input date agar tidak melebar keluar card di iOS */
+        input[type="date"] {
+            min-height: 45px;
+            text-align: left;
+            background-color: #ffffff;
+        }
+
+        /* Tambahkan ikon panah custom pada select karena appearance: none */
+        select {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 36px;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        button {
+            width: 100%;
+            padding: 13px 16px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+
+        button:active {
+            transform: scale(0.99);
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+        }
+
+        button.secondary {
+            background: #e2e8f0;
+            color: var(--text);
+        }
+
+        button.secondary:hover {
+            background: #cbd5e1;
+        }
+
+        button.danger {
+            background: var(--red-bg);
+            color: var(--red-text);
+            padding: 6px 10px;
+            font-size: 0.78rem;
+            border-radius: 8px;
+            width: auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .link-btn {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 0.85rem;
+            text-decoration: underline;
+            cursor: pointer;
+            width: auto;
+            padding: 8px;
+        }
+
+        /* Summary Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .stat-box {
+            background: var(--bg);
+            padding: 12px 6px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-num {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 0.72rem;
+            color: var(--muted);
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 0.74rem;
+            font-weight: 700;
+        }
+
+        .badge-hadir {
+            background: var(--green-bg);
+            color: var(--green-text);
+        }
+
+        .badge-absent {
+            background: var(--red-bg);
+            color: var(--red-text);
+        }
+
+        .badge-izin {
+            background: var(--yellow-bg);
+            color: var(--yellow-text);
+        }
+
+        .badge-score {
+            background: var(--blue-bg);
+            color: var(--blue-text);
+            margin-right: 4px;
+        }
+
+        /* Log Item */
+        .log-item {
+            border-bottom: 1px solid var(--border-light);
+            padding: 14px 0;
+        }
+
+        .log-item:first-child {
+            padding-top: 4px;
+        }
+
+        .log-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .log-date {
+            font-size: 0.8rem;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .log-topic {
+            font-weight: 600;
+            font-size: 0.94rem;
+            margin-bottom: 4px;
+        }
+
+        .log-notes {
+            font-size: 0.84rem;
+            color: #475569;
+            background: var(--bg);
+            padding: 8px 10px;
+            border-radius: 8px;
+            margin-top: 6px;
+        }
+
+        /* Segmented Tabs (Rapi & Satu Baris) */
+        .tabs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            background: var(--bg);
+            padding: 5px;
+            border-radius: 12px;
+            margin-bottom: 18px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            color: var(--muted);
+            padding: 9px 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 9px;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .logout-btn {
+            width: auto;
+            padding: 7px 12px;
+            font-size: 0.8rem;
+            border-radius: 9px;
+            flex-shrink: 0;
+        }
+
+        .alert {
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 0.84rem;
+            margin-bottom: 12px;
+            background: var(--red-bg);
+            color: var(--red-text);
+        }
+
+        .toast-success {
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 0.84rem;
+            margin-bottom: 12px;
+            background: var(--green-bg);
+            color: var(--green-text);
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- 1. VIEW GERBANG MASUK (ORANG TUA) -->
+        <div id="view-login" class="card">
+            <h1>Portal Laporan Les Privat</h1>
+            <p class="sub">Masukkan kode akses murid untuk melihat jadwal, absensi, dan perkembangan nilai belajar.</p>
+            <div id="login-error" class="alert hidden"></div>
+            <label for="access-code-input">Kode Akses Murid</label>
+            <input type="text" id="access-code-input" placeholder="Contoh: SAHLA2026 atau BINA2026"
+                autocapitalize="characters" />
+            <button onclick="openParentPortal()">Lihat Laporan Belajar</button>
+
+            <div class="text-center" style="margin-top: 14px;">
+                <button class="link-btn" onclick="showView('view-teacher-login')">Masuk sebagai Guru (Admin)</button>
+            </div>
+        </div>
+
+        <!-- 2. VIEW PORTAL ORANG TUA -->
+        <div id="view-portal" class="hidden">
+            <div class="card">
+                <div class="top-bar" style="margin-bottom: 0;">
+                    <div>
+                        <h1 id="portal-student-name">Nama Murid</h1>
+                        <p class="sub" style="margin-bottom: 0;" id="portal-schedule">Jadwal: -</p>
+                    </div>
+                    <button class="secondary logout-btn" onclick="logoutParent()">Keluar</button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-num" id="stat-hadir">0</div>
+                        <div class="stat-label">Total Hadir</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-num" id="stat-absent" style="color: #dc2626;">0</div>
+                        <div class="stat-label">Tidak Masuk</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-num" id="stat-avg">-</div>
+                        <div class="stat-label">Rata-rata Nilai</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Riwayat Belajar & Kehadiran</h2>
+                <div id="portal-logs-list"></div>
+            </div>
+        </div>
+
+        <!-- 3. VIEW LOGIN GURU -->
+        <div id="view-teacher-login" class="card hidden">
+            <h1>Login Guru</h1>
+            <p class="sub">Masukkan PIN Admin untuk mencatat materi, nilai, dan absensi harian.</p>
+            <div id="teacher-login-error" class="alert hidden"></div>
+            <label for="teacher-pin-input">PIN Guru</label>
+            <input type="password" id="teacher-pin-input" placeholder="Masukkan PIN Guru" />
+            <button onclick="loginTeacher()">Masuk Dashboard Guru</button>
+            <div class="text-center" style="margin-top: 12px;">
+                <button class="link-btn" onclick="showView('view-login')">Kembali ke Halaman Orang Tua</button>
+            </div>
+        </div>
+
+        <!-- 4. VIEW DASHBOARD GURU -->
+        <div id="view-teacher-admin" class="hidden">
+            <div class="card">
+                <div class="top-bar">
+                    <div>
+                        <h1>Dashboard Guru</h1>
+                        <p class="sub" style="margin-bottom: 0;">Kelola jurnal belajar Sahla & Bina</p>
+                    </div>
+                    <button class="secondary logout-btn" onclick="logoutTeacher()">Keluar</button>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab-btn active" id="tab-btn-input" onclick="switchAdminTab('input')">+ Catat
+                        Sesi</button>
+                    <button class="tab-btn" id="tab-btn-history" onclick="switchAdminTab('history')">Riwayat</button>
+                    <button class="tab-btn" id="tab-btn-schedule" onclick="switchAdminTab('schedule')">Jadwal</button>
+                </div>
+
+                <!-- TAB A: INPUT SESI BARU -->
+                <div id="admin-tab-input">
+                    <div id="input-success-msg" class="toast-success hidden">Laporan sesi berhasil disimpan!</div>
+
+                    <label for="input-student">Pilih Murid</label>
+                    <select id="input-student"></select>
+
+                    <label for="input-date">Tanggal Pertemuan</label>
+                    <input type="date" id="input-date" />
+
+                    <label for="input-status">Status Kehadiran</label>
+                    <select id="input-status" onchange="toggleHadirFields()">
+                        <option value="Hadir">Hadir</option>
+                        <option value="Izin">Izin</option>
+                        <option value="Sakit">Sakit</option>
+                        <option value="Alpa">Alpa (Tanpa Keterangan)</option>
+                    </select>
+
+                    <div id="hadir-only-fields">
+                        <label for="input-topic">Materi yang Dipelajari Hari Ini</label>
+                        <input type="text" id="input-topic" placeholder="Misal: Bahasa Inggris - Present Tense" />
+
+                        <label for="input-score">Predikat Nilai (Opsional)</label>
+                        <select id="input-score">
+                            <option value="">-- Tidak ada penilaian --</option>
+                            <option value="A">A (Sangat Memahami)</option>
+                            <option value="B">B (Mulai Memahami)</option>
+                            <option value="C">C (Belum Memahami)</option>
+                        </select>
+                    </div>
+
+                    <label for="input-notes">Catatan Perkembangan / Keterangan</label>
+                    <textarea id="input-notes" rows="2"
+                        placeholder="Catatan untuk orang tua atau alasan tidak masuk..."></textarea>
+
+                    <button onclick="submitNewLog()" style="margin-top: 4px;">Simpan Laporan</button>
+                </div>
+
+                <!-- TAB B: RIWAYAT SEMUA LOG -->
+                <div id="admin-tab-history" class="hidden">
+                    <div id="admin-logs-list"></div>
+                </div>
+
+                <!-- TAB C: KELOLA JADWAL & KODE AKSES -->
+                <div id="admin-tab-schedule" class="hidden">
+                    <div id="admin-students-list"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let teacherToken = localStorage.getItem("teacher_token") || "";
+
+        document.getElementById("input-date").valueAsDate = new Date();
+
+        function showView(viewId) {
+            ["view-login", "view-portal", "view-teacher-login", "view-teacher-admin"].forEach(id => {
+                document.getElementById(id).classList.add("hidden");
+            });
+            document.getElementById(viewId).classList.remove("hidden");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        function formatDateIndo(dateStr) {
+            const options = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
+            return new Date(dateStr + "T00:00:00").toLocaleDateString('id-ID', options);
+        }
+
+        // --- PARENT PORTAL LOGIC ---
+        async function openParentPortal(savedCode = null) {
+            const code = savedCode || document.getElementById("access-code-input").value.trim();
+            const errBox = document.getElementById("login-error");
+            errBox.classList.add("hidden");
+
+            if (!code) {
+                errBox.textContent = "Silakan masukkan kode akses terlebih dahulu.";
+                errBox.classList.remove("hidden");
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/portal/${encodeURIComponent(code)}`);
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.detail || "Kode tidak valid");
+                }
+                const data = await res.json();
+                localStorage.setItem("parent_code", code);
+
+                document.getElementById("portal-student-name").textContent = data.student.name;
+                document.getElementById("portal-schedule").textContent = `Jadwal: ${data.student.schedule_days} (${data.student.schedule_time})`;
+                document.getElementById("stat-hadir").textContent = data.summary.hadir;
+                document.getElementById("stat-absent").textContent = data.summary.tidak_masuk;
+                document.getElementById("stat-avg").textContent = data.summary.rata_rata_nilai !== null ? data.summary.rata_rata_nilai : "-";
+
+                const listEl = document.getElementById("portal-logs-list");
+                if (data.logs.length === 0) {
+                    listEl.innerHTML = `<p class="sub">Belum ada catatan pertemuan untuk ${data.student.name}.</p>`;
+                } else {
+                    listEl.innerHTML = data.logs.map(log => {
+                        const isHadir = log.attendance_status === "Hadir";
+                        const badgeClass = isHadir ? "badge-hadir" : (log.attendance_status === "Izin" ? "badge-izin" : "badge-absent");
+                        const scoreBadge = (isHadir && log.score !== null) ? `<span class="badge badge-score">Nilai: ${log.score}</span>` : "";
+                        const topicHtml = isHadir ? `<div class="log-topic">${log.topic || "-"}</div>` : `<div class="log-topic" style="color: var(--muted);">Tidak mengikuti sesi les</div>`;
+                        const notesHtml = log.notes ? `<div class="log-notes">Catatan: ${log.notes}</div>` : "";
+
+                        return `
+              <div class="log-item">
+                <div class="log-header">
+                  <span class="log-date">${formatDateIndo(log.date)}</span>
+                  <div style="flex-shrink: 0;">
+                    ${scoreBadge}
+                    <span class="badge ${badgeClass}">${log.attendance_status}</span>
+                  </div>
+                </div>
+                ${topicHtml}
+                ${notesHtml}
+              </div>
+            `;
+                    }).join("");
+                }
+
+                showView("view-portal");
+            } catch (err) {
+                errBox.textContent = err.message;
+                errBox.classList.remove("hidden");
+            }
+        }
+
+        function logoutParent() {
+            localStorage.removeItem("parent_code");
+            document.getElementById("access-code-input").value = "";
+            showView("view-login");
+        }
+
+        // --- TEACHER ADMIN LOGIC ---
+        async function loginTeacher() {
+            const pin = document.getElementById("teacher-pin-input").value.trim();
+            const errBox = document.getElementById("teacher-login-error");
+            errBox.classList.add("hidden");
+
+            try {
+                const res = await fetch("/api/admin/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pin })
+                });
+                if (!res.ok) throw new Error("PIN Guru salah.");
+                const data = await res.json();
+                teacherToken = data.token;
+                localStorage.setItem("teacher_token", teacherToken);
+                await loadAdminData();
+                showView("view-teacher-admin");
+            } catch (err) {
+                errBox.textContent = err.message;
+                errBox.classList.remove("hidden");
+            }
+        }
+
+        function logoutTeacher() {
+            teacherToken = "";
+            localStorage.removeItem("teacher_token");
+            showView("view-login");
+        }
+
+        function switchAdminTab(tab) {
+            ["input", "history", "schedule"].forEach(t => {
+                document.getElementById(`admin-tab-${t}`).classList.add("hidden");
+                document.getElementById(`tab-btn-${t}`).classList.remove("active");
+            });
+            document.getElementById(`admin-tab-${tab}`).classList.remove("hidden");
+            document.getElementById(`tab-btn-${tab}`).classList.add("active");
+        }
+
+        function toggleHadirFields() {
+            const status = document.getElementById("input-status").value;
+            const fields = document.getElementById("hadir-only-fields");
+            if (status === "Hadir") {
+                fields.classList.remove("hidden");
+            } else {
+                fields.classList.add("hidden");
+            }
+        }
+
+        async function loadAdminData() {
+            const res = await fetch("/api/admin/overview", {
+                headers: { "X-Teacher-Pin": teacherToken }
+            });
+            if (!res.ok) {
+                logoutTeacher();
+                return;
+            }
+            const data = await res.json();
+
+            const selectEl = document.getElementById("input-student");
+            const prevVal = selectEl.value;
+            selectEl.innerHTML = data.students.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+            if (prevVal) selectEl.value = prevVal;
+
+            const logsEl = document.getElementById("admin-logs-list");
+            logsEl.innerHTML = data.logs.length === 0 ? `<p class="sub">Belum ada data.</p>` : data.logs.map(l => `
+        <div class="log-item">
+          <div class="log-header">
+            <strong style="font-size: 0.88rem;">${l.student_name} • ${formatDateIndo(l.date)}</strong>
+            <button class="danger" onclick="deleteLog(${l.id})">Hapus</button>
+          </div>
+          <div style="font-size: 0.85rem;">
+            Status: <strong>${l.attendance_status}</strong> ${l.score !== null ? `| Nilai: <strong>${l.score}</strong>` : ""}
+          </div>
+          ${l.attendance_status === "Hadir" ? `<div style="font-size: 0.85rem; margin-top: 2px;">Materi: ${l.topic || "-"}</div>` : ""}
+          ${l.notes ? `<div class="log-notes">${l.notes}</div>` : ""}
+        </div>
+      `).join("");
+
+            const schedEl = document.getElementById("admin-students-list");
+            schedEl.innerHTML = data.students.map(s => `
+        <div style="border: 1px solid var(--border-light); padding: 14px; border-radius: 12px; margin-bottom: 12px;">
+          <h3 style="font-size: 1rem; margin-bottom: 10px;">${s.name}</h3>
+          <label>Hari Les Rutin</label>
+          <input type="text" id="sched-days-${s.id}" value="${s.schedule_days}" />
+          <label>Jam Les</label>
+          <input type="text" id="sched-time-${s.id}" value="${s.schedule_time}" />
+          <label>Kode Akses Orang Tua</label>
+          <input type="text" id="sched-code-${s.id}" value="${s.access_code}" autocapitalize="characters" />
+          <button onclick="saveSchedule(${s.id})">Simpan Perubahan ${s.name}</button>
+        </div>
+      `).join("");
+        }
+
+        async function submitNewLog() {
+            const scoreVal = document.getElementById("input-score").value;
+            const payload = {
+                student_id: parseInt(document.getElementById("input-student").value),
+                date: document.getElementById("input-date").value,
+                attendance_status: document.getElementById("input-status").value,
+                topic: document.getElementById("input-topic").value.trim(),
+                score: scoreVal ? scoreVal : null,
+                notes: document.getElementById("input-notes").value.trim()
+            };
+
+            const res = await fetch("/api/admin/logs", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Teacher-Pin": teacherToken
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                document.getElementById("input-topic").value = "";
+                document.getElementById("input-score").value = "";
+                document.getElementById("input-notes").value = "";
+                await loadAdminData();
+                switchAdminTab("history");
+            }
+        }
+
+        async function deleteLog(id) {
+            if (!confirm("Hapus catatan pertemuan ini?")) return;
+            await fetch(`/api/admin/logs/${id}`, {
+                method: "DELETE",
+                headers: { "X-Teacher-Pin": teacherToken }
+            });
+            await loadAdminData();
+        }
+
+        async function saveSchedule(studentId) {
+            const payload = {
+                schedule_days: document.getElementById(`sched-days-${studentId}`).value,
+                schedule_time: document.getElementById(`sched-time-${studentId}`).value,
+                access_code: document.getElementById(`sched-code-${studentId}`).value
+            };
+            const res = await fetch(`/api/admin/students/${studentId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Teacher-Pin": teacherToken
+                },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                alert("Jadwal & kode akses berhasil diperbarui!");
+                await loadAdminData();
+            }
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            if (teacherToken) {
+                loadAdminData().then(() => showView("view-teacher-admin"));
+            } else if (localStorage.getItem("parent_code")) {
+                openParentPortal(localStorage.getItem("parent_code"));
+            }
+        });
+    </script>
+</body>
+
+</html>
