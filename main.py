@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from typing import Optional
@@ -6,6 +7,9 @@ from fastapi import FastAPI, HTTPException, Header, Depends, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
 
 app = FastAPI(title="Portal Les Privat Kak Fiona")
 
