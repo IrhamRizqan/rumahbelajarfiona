@@ -100,7 +100,7 @@ def verify_teacher(x_teacher_pin: str = Header(None)):
 # --- Public / Parent Endpoints ---
 @app.get("/")
 def serve_home():
-    return FileResponse("static/index.html")
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/api/portal/{access_code}")
@@ -260,4 +260,4 @@ def update_student_schedule(student_id: int, payload: ScheduleUpdate):
     return {"status": "updated"}
 
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
