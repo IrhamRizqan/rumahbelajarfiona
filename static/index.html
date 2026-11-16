@@ -361,6 +361,36 @@
             color: var(--green-text);
             font-weight: 600;
         }
+
+        button:disabled {
+            opacity: 0.75;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border: 2.5px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+            margin-top: -2px;
+        }
+
+        .spinner-dark {
+            border-color: rgba(153, 27, 27, 0.25);
+            border-top-color: var(--red-text);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
@@ -503,6 +533,21 @@
 
         document.getElementById("input-date").valueAsDate = new Date();
 
+        function setBtnLoading(btn, isLoading, loadingText = "Memproses...") {
+            if (!btn) return;
+            if (isLoading) {
+                btn.dataset.originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                const spinnerClass = btn.classList.contains("danger") ? "spinner spinner-dark" : "spinner";
+                btn.innerHTML = `<span class="${spinnerClass}"></span>${loadingText}`;
+            } else {
+                btn.disabled = false;
+                if (btn.dataset.originalHtml) {
+                    btn.innerHTML = btn.dataset.originalHtml;
+                }
+            }
+        }
+
         function showView(viewId) {
             ["view-login", "view-portal", "view-teacher-login", "view-teacher-admin"].forEach(id => {
                 document.getElementById(id).classList.add("hidden");
@@ -518,6 +563,7 @@
 
         // --- PARENT PORTAL LOGIC ---
         async function openParentPortal(savedCode = null) {
+            const btn = document.querySelector("#view-login button:not(.link-btn)");
             const code = savedCode || document.getElementById("access-code-input").value.trim();
             const errBox = document.getElementById("login-error");
             errBox.classList.add("hidden");
@@ -527,6 +573,8 @@
                 errBox.classList.remove("hidden");
                 return;
             }
+
+            setBtnLoading(btn, true, "Membuka Laporan...");
 
             try {
                 const res = await fetch(`/api/portal/${encodeURIComponent(code)}`);
@@ -555,18 +603,18 @@
                         const notesHtml = log.notes ? `<div class="log-notes">Catatan: ${log.notes}</div>` : "";
 
                         return `
-              <div class="log-item">
-                <div class="log-header">
-                  <span class="log-date">${formatDateIndo(log.date)}</span>
-                  <div style="flex-shrink: 0;">
-                    ${scoreBadge}
-                    <span class="badge ${badgeClass}">${log.attendance_status}</span>
-                  </div>
-                </div>
-                ${topicHtml}
-                ${notesHtml}
-              </div>
-            `;
+                          <div class="log-item">
+                            <div class="log-header">
+                              <span class="log-date">${formatDateIndo(log.date)}</span>
+                              <div style="flex-shrink: 0;">
+                                ${scoreBadge}
+                                <span class="badge ${badgeClass}">${log.attendance_status}</span>
+                              </div>
+                            </div>
+                            ${topicHtml}
+                            ${notesHtml}
+                          </div>
+                        `;
                     }).join("");
                 }
 
@@ -574,6 +622,8 @@
             } catch (err) {
                 errBox.textContent = err.message;
                 errBox.classList.remove("hidden");
+            } finally {
+                setBtnLoading(btn, false);
             }
         }
 
@@ -585,9 +635,12 @@
 
         // --- TEACHER ADMIN LOGIC ---
         async function loginTeacher() {
+            const btn = document.querySelector("#view-teacher-login button:not(.link-btn)");
             const pin = document.getElementById("teacher-pin-input").value.trim();
             const errBox = document.getElementById("teacher-login-error");
             errBox.classList.add("hidden");
+
+            setBtnLoading(btn, true, "Memeriksa PIN...");
 
             try {
                 const res = await fetch("/api/admin/login", {
@@ -599,11 +652,15 @@
                 const data = await res.json();
                 teacherToken = data.token;
                 localStorage.setItem("teacher_token", teacherToken);
+
+                btn.innerHTML = `<span class="spinner"></span>Memuat Dashboard...`;
                 await loadAdminData();
                 showView("view-teacher-admin");
             } catch (err) {
                 errBox.textContent = err.message;
                 errBox.classList.remove("hidden");
+            } finally {
+                setBtnLoading(btn, false);
             }
         }
 
@@ -652,7 +709,7 @@
         <div class="log-item">
           <div class="log-header">
             <strong style="font-size: 0.88rem;">${l.student_name} • ${formatDateIndo(l.date)}</strong>
-            <button class="danger" onclick="deleteLog(${l.id})">Hapus</button>
+          <button class="danger" onclick="deleteLog(${l.id}, this)">Hapus</button>
           </div>
           <div style="font-size: 0.85rem;">
             Status: <strong>${l.attendance_status}</strong> ${l.score !== null ? `| Nilai: <strong>${l.score}</strong>` : ""}
@@ -672,12 +729,13 @@
           <input type="text" id="sched-time-${s.id}" value="${s.schedule_time}" />
           <label>Kode Akses Orang Tua</label>
           <input type="text" id="sched-code-${s.id}" value="${s.access_code}" autocapitalize="characters" />
-          <button onclick="saveSchedule(${s.id})">Simpan Perubahan ${s.name}</button>
+          <button onclick="saveSchedule(${s.id}, this)">Simpan Perubahan ${s.name}</button>
         </div>
       `).join("");
         }
 
         async function submitNewLog() {
+            const btn = document.querySelector("#admin-tab-input button");
             const scoreVal = document.getElementById("input-score").value;
             const payload = {
                 student_id: parseInt(document.getElementById("input-student").value),
@@ -688,50 +746,66 @@
                 notes: document.getElementById("input-notes").value.trim()
             };
 
-            const res = await fetch("/api/admin/logs", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Teacher-Pin": teacherToken
-                },
-                body: JSON.stringify(payload)
-            });
+            setBtnLoading(btn, true, "Menyimpan...");
+            try {
+                const res = await fetch("/api/admin/logs", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Teacher-Pin": teacherToken
+                    },
+                    body: JSON.stringify(payload)
+                });
 
-            if (res.ok) {
-                document.getElementById("input-topic").value = "";
-                document.getElementById("input-score").value = "";
-                document.getElementById("input-notes").value = "";
-                await loadAdminData();
-                switchAdminTab("history");
+                if (res.ok) {
+                    document.getElementById("input-topic").value = "";
+                    document.getElementById("input-score").value = "";
+                    document.getElementById("input-notes").value = "";
+                    await loadAdminData();
+                    switchAdminTab("history");
+                }
+            } finally {
+                setBtnLoading(btn, false);
             }
         }
 
-        async function deleteLog(id) {
+        async function deleteLog(id, btn) {
             if (!confirm("Hapus catatan pertemuan ini?")) return;
-            await fetch(`/api/admin/logs/${id}`, {
-                method: "DELETE",
-                headers: { "X-Teacher-Pin": teacherToken }
-            });
-            await loadAdminData();
+            setBtnLoading(btn, true, "Menghapus...");
+            try {
+                await fetch(`/api/admin/logs/${id}`, {
+                    method: "DELETE",
+                    headers: { "X-Teacher-Pin": teacherToken }
+                });
+                await loadAdminData();
+            } finally {
+                setBtnLoading(btn, false);
+            }
         }
 
-        async function saveSchedule(studentId) {
+        async function saveSchedule(studentId, btn) {
             const payload = {
                 schedule_days: document.getElementById(`sched-days-${studentId}`).value,
                 schedule_time: document.getElementById(`sched-time-${studentId}`).value,
                 access_code: document.getElementById(`sched-code-${studentId}`).value
             };
-            const res = await fetch(`/api/admin/students/${studentId}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Teacher-Pin": teacherToken
-                },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) {
-                alert("Jadwal & kode akses berhasil diperbarui!");
-                await loadAdminData();
+
+            setBtnLoading(btn, true, "Menyimpan...");
+            try {
+                const res = await fetch(`/api/admin/students/${studentId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Teacher-Pin": teacherToken
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    alert("Jadwal & kode akses berhasil diperbarui!");
+                    await loadAdminData();
+                }
+            } finally {
+                setBtnLoading(btn, false);
             }
         }
 
