@@ -1,19 +1,24 @@
-from psycopg2.errors import InvalidTimeZoneDisplacementValue
 import os
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Header, Depends, status
+from fastapi import FastAPI, HTTPException, Header, Depends, status, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
 app = FastAPI(title="Portal Les Privat Kak Fiona")
+@app.exception_handler(Exception)
+async def global_exception_handler(request:Request, exc:Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"Detail": f"{type(exc).__name__}: {str(exc)}"},
+    )
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 TEACHER_PIN = os.getenv("TEACHER_PIN", "FIONA2026")

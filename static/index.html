@@ -362,6 +362,34 @@
             font-weight: 600;
         }
 
+        .toast-error {
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            margin-bottom: 14px;
+            background: var(--red-bg);
+            color: var(--red-text);
+            font-weight: 600;
+        }
+
+        .error-detail-link {
+            text-decoration: underline;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .error-detail-box {
+            margin-top: 8px;
+            padding: 8px 10px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.78rem;
+            font-weight: 400;
+            word-break: break-word;
+            user-select: all;
+        }
+
         button:disabled {
             opacity: 0.75;
             cursor: not-allowed;
@@ -476,6 +504,8 @@
                     <button class="tab-btn" id="tab-btn-schedule" onclick="switchAdminTab('schedule')">Jadwal</button>
                 </div>
 
+                <div id="admin-notification" class="hidden"></div>
+
                 <!-- TAB A: INPUT SESI BARU -->
                 <div id="admin-tab-input">
                     <div id="input-success-msg" class="toast-success hidden">Laporan sesi berhasil disimpan!</div>
@@ -545,6 +575,34 @@
                 if (btn.dataset.originalHtml) {
                     btn.innerHTML = btn.dataset.originalHtml;
                 }
+            }
+        }
+
+        function showAdminNotif(type, message, detail = "") {
+            const box = document.getElementById("admin-notification");
+            box.classList.remove("hidden", "toast-success", "toast-error");
+
+            if (type === "success") {
+                box.classList.add("toast-success");
+                box.innerHTML = `✓ ${message}`;
+                setTimeout(() => box.classList.add("hidden"), 4000);
+            } else {
+                box.classList.add("toast-error");
+                const detailHtml = detail
+                    ? ` <span class="error-detail-link" onclick="document.getElementById('notif-detail-text').classList.toggle('hidden')">Klik di sini untuk detailnya</span>
+                       <div id="notif-detail-text" class="error-detail-box hidden">${detail}</div>`
+                    : "";
+                box.innerHTML = `⚠ ${message}${detailHtml}`;
+            }
+        }
+
+        async function parseErrorResponse(res) {
+            try {
+                const data = await res.json();
+                return data.detail || `HTTP Error ${res.status}`;
+            } catch {
+                const text = await res.text();
+                return text ? text.slice(0, 200) : `HTTP Error ${res.status}`;
             }
         }
 
@@ -757,13 +815,20 @@
                     body: JSON.stringify(payload)
                 });
 
-                if (res.ok) {
-                    document.getElementById("input-topic").value = "";
-                    document.getElementById("input-score").value = "";
-                    document.getElementById("input-notes").value = "";
-                    await loadAdminData();
-                    switchAdminTab("history");
+                if (!res.ok) {
+                    const errDetail = await parseErrorResponse(res);
+                    showAdminNotif("error", "Ada sesuatu yang salah saat menyimpan laporan.", errDetail);
+                    return;
                 }
+
+                document.getElementById("input-topic").value = "";
+                document.getElementById("input-score").value = "";
+                document.getElementById("input-notes").value = "";
+                await loadAdminData();
+                switchAdminTab("history");
+                showAdminNotif("success", "Laporan tersimpan!");
+            } catch (err) {
+                showAdminNotif("error", "Gagal terhubung ke server.", err.message);
             } finally {
                 setBtnLoading(btn, false);
             }
@@ -773,11 +838,19 @@
             if (!confirm("Hapus catatan pertemuan ini?")) return;
             setBtnLoading(btn, true, "Menghapus...");
             try {
-                await fetch(`/api/admin/logs/${id}`, {
+                const res = await fetch(`/api/admin/logs/${id}`, {
                     method: "DELETE",
                     headers: { "X-Teacher-Pin": teacherToken }
                 });
+                if (!res.ok) {
+                    const errDetail = await parseErrorResponse(res);
+                    showAdminNotif("error", "Gagal menghapus catatan.", errDetail);
+                    return;
+                }
                 await loadAdminData();
+                showAdminNotif("success", "Catatan pertemuan dihapus.");
+            } catch (err) {
+                showAdminNotif("error", "Gagal terhubung ke server.", err.message);
             } finally {
                 setBtnLoading(btn, false);
             }
@@ -800,10 +873,15 @@
                     },
                     body: JSON.stringify(payload)
                 });
-                if (res.ok) {
-                    alert("Jadwal & kode akses berhasil diperbarui!");
-                    await loadAdminData();
+                if (!res.ok) {
+                    const errDetail = await parseErrorResponse(res);
+                    showAdminNotif("error", "Gagal memperbarui jadwal.", errDetail);
+                    return;
                 }
+                await loadAdminData();
+                showAdminNotif("success", "Jadwal & kode akses berhasil diperbarui!");
+            } catch (err) {
+                showAdminNotif("error", "Gagal terhubung ke server.", err.message);
             } finally {
                 setBtnLoading(btn, false);
             }
