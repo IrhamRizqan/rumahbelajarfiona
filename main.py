@@ -1,4 +1,6 @@
+from psycopg2.errors import InvalidTimeZoneDisplacementValue
 import os
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -65,9 +67,9 @@ def init_db():
     conn.close()
 
 
-@app.on_event("startup")
+"""@app.on_event("startup")
 def startup_event():
-    init_db()
+    init_db()"""
 
 
 # --- Schemas ---
@@ -206,14 +208,18 @@ def create_log(payload: LogCreate):
         else None
     )
 
+    wib = timezone(timedelta(hours=7))
+    current_time_str = datetime.now(wib).strftime("%H:%M")
+
     cur.execute(
         """
-        INSERT INTO learning_logs (student_id, date, attendance_status, topic, score, notes)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO learning_logs (student_id, date, logged_at, attendance_status, topic, score, notes)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
         (
             payload.student_id,
             payload.date,
+            current_time_str,
             payload.attendance_status,
             topic,
             score,

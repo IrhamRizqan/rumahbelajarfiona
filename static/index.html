@@ -605,7 +605,7 @@
                         return `
                           <div class="log-item">
                             <div class="log-header">
-                              <span class="log-date">${formatDateIndo(log.date)}</span>
+                              <span class="log-date">${formatDateIndo(log.date)}${log.logged_at ? ` • ${log.logged_at}` : ""}</span>
                               <div style="flex-shrink: 0;">
                                 ${scoreBadge}
                                 <span class="badge ${badgeClass}">${log.attendance_status}</span>
@@ -708,7 +708,7 @@
             logsEl.innerHTML = data.logs.length === 0 ? `<p class="sub">Belum ada data.</p>` : data.logs.map(l => `
         <div class="log-item">
           <div class="log-header">
-            <strong style="font-size: 0.88rem;">${l.student_name} • ${formatDateIndo(l.date)}</strong>
+            <strong style="font-size: 0.88rem;">${l.student_name} • ${formatDateIndo(l.date)}${l.logged_at ? ` • ${l.logged_at}` : ""}</strong>
           <button class="danger" onclick="deleteLog(${l.id}, this)">Hapus</button>
           </div>
           <div style="font-size: 0.85rem;">
