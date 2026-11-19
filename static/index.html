@@ -4,12 +4,13 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="theme-color" content="#f6f3ff" />
     <title>Rumah Belajar Fiona - Portal Les Privat</title>
-    <link rel="icon" type="image/png" href="/static/logo.png" />
-    <link rel="apple-touch-icon" href="/static/logo.png" />
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235b21b6'%3E%3Cpath d='M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/static/style.css" />
 </head>
 
@@ -18,10 +19,8 @@
         <div class="auth-card">
             <div class="brand-header">
                 <div class="brand-icon-box">
-                    <img src="/static/logo.png" alt="Logo"
-                        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
-                    <svg style="display:none;" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2.2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.2">
                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                         <polyline points="9 22 9 12 15 12 15 22" />
                     </svg>
@@ -38,7 +37,7 @@
 
             <label for="access-code-input">Kode Akses Murid</label>
             <input type="text" id="access-code-input" placeholder="Contoh: SAHLA2026 atau BINA2026"
-                autocapitalize="characters" />
+                autocapitalize="characters" autocomplete="off" />
             <button onclick="openParentPortal()">Lihat Laporan Belajar</button>
 
             <div style="text-align: center; margin-top: 14px;">
@@ -144,7 +143,8 @@
             <div id="teacher-login-error" class="alert hidden"></div>
 
             <label for="teacher-pin-input">PIN Guru</label>
-            <input type="password" id="teacher-pin-input" placeholder="Masukkan PIN Guru" />
+            <input type="password" id="teacher-pin-input" placeholder="Masukkan PIN Guru"
+                autocomplete="current-password" />
             <button onclick="loginTeacher()">Masuk Dashboard Guru</button>
 
             <div style="text-align: center; margin-top: 14px;">
@@ -154,16 +154,13 @@
     </div>
 
     <div id="view-teacher-admin" class="app-shell hidden">
-
         <aside class="sidebar">
             <div>
                 <div class="sidebar-top">
                     <div class="brand-header" style="margin-bottom: 0;">
                         <div class="brand-icon-box" style="width: 40px; height: 40px; border-radius: 12px;">
-                            <img src="/static/logo.png" alt="Logo"
-                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
-                            <svg style="display:none;" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2.2">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.2">
                                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                                 <polyline points="9 22 9 12 15 12 15 22" />
                             </svg>
@@ -320,7 +317,7 @@
                 </div>
 
                 <div class="motivation-banner">
-                    Semangat Ngajarnyaa!💜
+                    Konsisten dan terus semangat belajar ya, adik-adik! 💜
                 </div>
             </div>
 
@@ -401,13 +398,25 @@
 
         document.getElementById("input-date").valueAsDate = new Date();
 
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return "";
+            const map = {
+                "&": "\u0026amp;",
+                "<": "\u0026lt;",
+                ">": "\u0026gt;",
+                '"': "\u0026quot;",
+                "'": "\u0026#39;"
+            };
+            return String(value).replace(/[&<>"']/g, ch => map[ch]);
+        }
+
         function setBtnLoading(btn, isLoading, loadingText = "Memproses...") {
             if (!btn) return;
             if (isLoading) {
                 btn.dataset.originalHtml = btn.innerHTML;
                 btn.disabled = true;
                 const spinnerClass = btn.classList.contains("danger") ? "spinner spinner-dark" : "spinner";
-                btn.innerHTML = `<span class="${spinnerClass}"></span>${loadingText}`;
+                btn.innerHTML = `<span class="${spinnerClass}"></span>${escapeHtml(loadingText)}`;
             } else {
                 btn.disabled = false;
                 if (btn.dataset.originalHtml) {
@@ -422,25 +431,27 @@
 
             if (type === "success") {
                 box.classList.add("toast-success");
-                box.innerHTML = `✓ ${message}`;
+                box.textContent = `✓ ${message}`;
                 setTimeout(() => box.classList.add("hidden"), 4000);
             } else {
                 box.classList.add("toast-error");
                 const detailHtml = detail
                     ? ` <span class="error-detail-link" onclick="document.getElementById('notif-detail-text').classList.toggle('hidden')">Klik di sini untuk detailnya</span>
-             <div id="notif-detail-text" class="error-detail-box hidden">${detail}</div>`
+                        <div id="notif-detail-text" class="error-detail-box hidden">${escapeHtml(detail)}</div>`
                     : "";
-                box.innerHTML = `⚠ ${message}${detailHtml}`;
+                box.innerHTML = `⚠ ${escapeHtml(message)}${detailHtml}`;
             }
         }
 
         async function parseErrorResponse(res) {
             try {
                 const data = await res.json();
+                if (Array.isArray(data.detail)) {
+                    return data.detail.map(e => e.msg).join(", ");
+                }
                 return data.detail || `HTTP Error ${res.status}`;
             } catch {
-                const text = await res.text();
-                return text ? text.slice(0, 200) : `HTTP Error ${res.status}`;
+                return `HTTP Error ${res.status}`;
             }
         }
 
@@ -457,7 +468,6 @@
             return new Date(dateStr + "T00:00:00").toLocaleDateString('id-ID', options);
         }
 
-        // --- PARENT PORTAL LOGIC ---
         async function openParentPortal(savedCode = null) {
             const btn = document.querySelector("#view-login button:not(.link-btn)");
             const code = savedCode || document.getElementById("access-code-input").value.trim();
@@ -475,8 +485,8 @@
             try {
                 const res = await fetch(`/api/portal/${encodeURIComponent(code)}`);
                 if (!res.ok) {
-                    const data = await res.json();
-                    throw new Error(data.detail || "Kode tidak valid");
+                    const errMsg = await parseErrorResponse(res);
+                    throw new Error(errMsg);
                 }
                 const data = await res.json();
                 localStorage.setItem("parent_code", code);
@@ -489,32 +499,37 @@
 
                 const listEl = document.getElementById("portal-logs-list");
                 if (data.logs.length === 0) {
-                    listEl.innerHTML = `<p class="sub" style="margin-bottom:0;">Belum ada catatan pertemuan untuk ${data.student.name}.</p>`;
+                    listEl.innerHTML = `<p class="sub" style="margin-bottom:0;">Belum ada catatan pertemuan untuk ${escapeHtml(data.student.name)}.</p>`;
                 } else {
                     listEl.innerHTML = data.logs.map(log => {
                         const isHadir = log.attendance_status === "Hadir";
                         const dotClass = isHadir ? "icon-purple" : "icon-amber";
                         const badgeClass = isHadir ? "badge-hadir" : (log.attendance_status === "Izin" ? "badge-izin" : "badge-absent");
-                        const scoreBadge = (isHadir && log.score !== null) ? `<span class="badge badge-score">Nilai: ${log.score}</span>` : "";
+                        const scoreBadge = (isHadir && log.score !== null)
+                            ? `<span class="badge badge-score">Nilai: ${escapeHtml(log.score)}</span>`
+                            : "";
                         const titleText = isHadir ? (log.topic || "Sesi Belajar") : "Tidak mengikuti sesi les";
-                        const notesHtml = log.notes ? `<div class="timeline-notes">Catatan: ${log.notes}</div>` : "";
+                        const notesHtml = log.notes
+                            ? `<div class="timeline-notes">Catatan: ${escapeHtml(log.notes)}</div>`
+                            : "";
+                        const timeText = log.logged_at ? ` • ${escapeHtml(log.logged_at)}` : "";
 
                         return `
-              <div class="timeline-item">
-                <div class="timeline-dot ${dotClass}">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                </div>
-                <div class="timeline-body">
-                  <div class="timeline-meta">
-                    ${formatDateIndo(log.date)}${log.logged_at ? ` • ${log.logged_at}` : ""}
-                    <span class="badge ${badgeClass}">${log.attendance_status}</span>
-                    ${scoreBadge}
-                  </div>
-                  <div class="timeline-title">${titleText}</div>
-                  ${notesHtml}
-                </div>
-              </div>
-            `;
+                          <div class="timeline-item">
+                            <div class="timeline-dot ${dotClass}">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            </div>
+                            <div class="timeline-body">
+                              <div class="timeline-meta">
+                                ${escapeHtml(formatDateIndo(log.date))}${timeText}
+                                <span class="badge ${badgeClass}">${escapeHtml(log.attendance_status)}</span>
+                                ${scoreBadge}
+                              </div>
+                              <div class="timeline-title">${escapeHtml(titleText)}</div>
+                              ${notesHtml}
+                            </div>
+                          </div>
+                        `;
                     }).join("");
                 }
 
@@ -553,10 +568,14 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ pin })
                 });
-                if (!res.ok) throw new Error("PIN Guru salah.");
+                if (!res.ok) {
+                    const errMsg = await parseErrorResponse(res);
+                    throw new Error(errMsg);
+                }
                 const data = await res.json();
                 teacherToken = data.token;
                 localStorage.setItem("teacher_token", teacherToken);
+                document.getElementById("teacher-pin-input").value = "";
 
                 btn.innerHTML = `<span class="spinner"></span>Memuat Dashboard...`;
                 await loadAdminData();
@@ -612,14 +631,14 @@
 
             const overviewSchedEl = document.getElementById("overview-schedule-list");
             overviewSchedEl.innerHTML = data.students.map(s => `
-        <div class="schedule-row">
-          <div>
-            <div class="sched-student">${s.name}</div>
-            <div class="sched-days">${s.schedule_days}</div>
-          </div>
-          <span class="sched-badge">${s.schedule_time}</span>
-        </div>
-      `).join("");
+                <div class="schedule-row">
+                  <div>
+                    <div class="sched-student">${escapeHtml(s.name)}</div>
+                    <div class="sched-days">${escapeHtml(s.schedule_days)}</div>
+                  </div>
+                  <span class="sched-badge">${escapeHtml(s.schedule_time)}</span>
+                </div>
+            `).join("");
 
             const recentEl = document.getElementById("overview-recent-logs");
             const recentLogs = data.logs.slice(0, 4);
@@ -632,70 +651,82 @@
                     const subtitle = isHadir
                         ? `Materi: ${l.topic || "-"}${l.score ? ` • Nilai: ${l.score}` : ""}`
                         : (l.notes || "Tidak mengikuti sesi les");
+                    const timeText = l.logged_at ? ` • ${escapeHtml(l.logged_at)}` : "";
+
                     return `
-            <div class="timeline-item">
-              <div class="timeline-dot ${iconClass}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-              </div>
-              <div class="timeline-body">
-                <div class="timeline-meta">${formatDateIndo(l.date)}${l.logged_at ? ` • ${l.logged_at}` : ""}</div>
-                <div class="timeline-title">${title}</div>
-                <div class="timeline-desc">${subtitle}</div>
-              </div>
-            </div>
-          `;
+                        <div class="timeline-item">
+                          <div class="timeline-dot ${iconClass}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                          </div>
+                          <div class="timeline-body">
+                            <div class="timeline-meta">${escapeHtml(formatDateIndo(l.date))}${timeText}</div>
+                            <div class="timeline-title">${escapeHtml(title)}</div>
+                            <div class="timeline-desc">${escapeHtml(subtitle)}</div>
+                          </div>
+                        </div>
+                    `;
                 }).join("");
 
             const selectEl = document.getElementById("input-student");
             const prevVal = selectEl.value;
-            selectEl.innerHTML = data.students.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+            selectEl.innerHTML = data.students
+                .map(s => `<option value="${Number(s.id)}">${escapeHtml(s.name)}</option>`)
+                .join("");
             if (prevVal) selectEl.value = prevVal;
 
             const logsEl = document.getElementById("admin-logs-list");
-            logsEl.innerHTML = data.logs.length === 0 ? `<p class="sub" style="margin-bottom:0;">Belum ada data.</p>` : data.logs.map(l => {
-                const isHadir = l.attendance_status === "Hadir";
-                const badgeClass = isHadir ? "badge-hadir" : (l.attendance_status === "Izin" ? "badge-izin" : "badge-absent");
-                return `
-          <div class="timeline-item">
-            <div class="timeline-dot ${isHadir ? "icon-purple" : "icon-amber"}">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            </div>
-            <div class="timeline-body">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                <div class="timeline-meta">
-                  ${l.student_name} • ${formatDateIndo(l.date)}${l.logged_at ? ` • ${l.logged_at}` : ""}
-                  <span class="badge ${badgeClass}">${l.attendance_status}</span>
-                  ${l.score !== null ? `<span class="badge badge-score">Nilai: ${l.score}</span>` : ""}
-                </div>
-                <button class="danger" onclick="deleteLog(${l.id}, this)">Hapus</button>
-              </div>
-              ${isHadir ? `<div class="timeline-title">${l.topic || "-"}</div>` : ""}
-              ${l.notes ? `<div class="timeline-notes">${l.notes}</div>` : ""}
-            </div>
-          </div>
-        `;
-            }).join("");
+            logsEl.innerHTML = data.logs.length === 0
+                ? `<p class="sub" style="margin-bottom:0;">Belum ada data.</p>`
+                : data.logs.map(l => {
+                    const isHadir = l.attendance_status === "Hadir";
+                    const badgeClass = isHadir ? "badge-hadir" : (l.attendance_status === "Izin" ? "badge-izin" : "badge-absent");
+                    const timeText = l.logged_at ? ` • ${escapeHtml(l.logged_at)}` : "";
+                    const safeId = Number(l.id);
+
+                    return `
+                      <div class="timeline-item">
+                        <div class="timeline-dot ${isHadir ? "icon-purple" : "icon-amber"}">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                        </div>
+                        <div class="timeline-body">
+                          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                            <div class="timeline-meta">
+                              ${escapeHtml(l.student_name)} • ${escapeHtml(formatDateIndo(l.date))}${timeText}
+                              <span class="badge ${badgeClass}">${escapeHtml(l.attendance_status)}</span>
+                              ${l.score !== null ? `<span class="badge badge-score">Nilai: ${escapeHtml(l.score)}</span>` : ""}
+                            </div>
+                            <button class="danger" onclick="deleteLog(${safeId}, this)">Hapus</button>
+                          </div>
+                          ${isHadir ? `<div class="timeline-title">${escapeHtml(l.topic || "-")}</div>` : ""}
+                          ${l.notes ? `<div class="timeline-notes">${escapeHtml(l.notes)}</div>` : ""}
+                        </div>
+                      </div>
+                    `;
+                }).join("");
 
             const schedEl = document.getElementById("admin-students-list");
-            schedEl.innerHTML = data.students.map(s => `
-        <div class="card" style="margin-bottom: 0;">
-          <h2 style="margin-bottom: 12px; color: var(--primary);">${s.name}</h2>
-          <label>Hari Les Rutin</label>
-          <input type="text" id="sched-days-${s.id}" value="${s.schedule_days}" />
-          <label>Jam Les</label>
-          <input type="text" id="sched-time-${s.id}" value="${s.schedule_time}" />
-          <label>Kode Akses Orang Tua</label>
-          <input type="text" id="sched-code-${s.id}" value="${s.access_code}" autocapitalize="characters" />
-          <button onclick="saveSchedule(${s.id}, this)">Simpan Perubahan ${s.name}</button>
-        </div>
-      `).join("");
+            schedEl.innerHTML = data.students.map(s => {
+                const safeId = Number(s.id);
+                return `
+                    <div class="card" style="margin-bottom: 0;">
+                      <h2 style="margin-bottom: 12px; color: var(--primary);">${escapeHtml(s.name)}</h2>
+                      <label>Hari Les Rutin</label>
+                      <input type="text" id="sched-days-${safeId}" value="${escapeHtml(s.schedule_days)}" maxlength="100" />
+                      <label>Jam Les</label>
+                      <input type="text" id="sched-time-${safeId}" value="${escapeHtml(s.schedule_time)}" maxlength="50" />
+                      <label>Kode Akses Orang Tua</label>
+                      <input type="text" id="sched-code-${safeId}" value="${escapeHtml(s.access_code)}" maxlength="32" autocapitalize="characters" />
+                      <button onclick="saveSchedule(${safeId}, this)">Simpan Perubahan ${escapeHtml(s.name)}</button>
+                    </div>
+                `;
+            }).join("");
         }
 
         async function submitNewLog() {
             const btn = document.querySelector("#admin-tab-input button");
             const scoreVal = document.getElementById("input-score").value;
             const payload = {
-                student_id: parseInt(document.getElementById("input-student").value),
+                student_id: parseInt(document.getElementById("input-student").value, 10),
                 date: document.getElementById("input-date").value,
                 attendance_status: document.getElementById("input-status").value,
                 topic: document.getElementById("input-topic").value.trim(),
@@ -737,7 +768,7 @@
             if (!confirm("Hapus catatan pertemuan ini?")) return;
             setBtnLoading(btn, true, "Menghapus...");
             try {
-                const res = await fetch(`/api/admin/logs/${id}`, {
+                const res = await fetch(`/api/admin/logs/${Number(id)}`, {
                     method: "DELETE",
                     headers: { "X-Teacher-Pin": teacherToken }
                 });
@@ -756,15 +787,16 @@
         }
 
         async function saveSchedule(studentId, btn) {
+            const safeId = Number(studentId);
             const payload = {
-                schedule_days: document.getElementById(`sched-days-${studentId}`).value,
-                schedule_time: document.getElementById(`sched-time-${studentId}`).value,
-                access_code: document.getElementById(`sched-code-${studentId}`).value
+                schedule_days: document.getElementById(`sched-days-${safeId}`).value,
+                schedule_time: document.getElementById(`sched-time-${safeId}`).value,
+                access_code: document.getElementById(`sched-code-${safeId}`).value
             };
 
             setBtnLoading(btn, true, "Menyimpan...");
             try {
-                const res = await fetch(`/api/admin/students/${studentId}`, {
+                const res = await fetch(`/api/admin/students/${safeId}`, {
                     method: "PUT",
                     headers: {
                         "Content-Type": "application/json",
@@ -799,7 +831,9 @@
                 const btn = document.querySelector("#view-teacher-login button:not(.link-btn)");
                 setBtnLoading(btn, true, "Memuat Sesi Guru...");
                 loadAdminData()
-                    .then(() => showView("view-teacher-admin"))
+                    .then(() => {
+                        if (teacherToken) showView("view-teacher-admin");
+                    })
                     .finally(() => setBtnLoading(btn, false));
             } else if (localStorage.getItem("parent_code")) {
                 openParentPortal(localStorage.getItem("parent_code"));
