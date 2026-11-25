@@ -529,6 +529,109 @@ async def create_log(
 
     return {"status": "created"}
 
+@app.put("/api/admin/logs/{log_id}", dependencies=[Depends(verify_teacher)])
+async def update_log(
+    log_id: int,
+    student_id: int = Form(...),
+    date: str = Form(...),
+    attendance_status: str = Form(...),
+    topic: str = Form(""),
+    score: str = Form(""),
+    notes: str = Form(""),
+    remove_proof: bool = Form(False),
+    proof_file: Optional[UploadFile] = File(None),
+):
+    if log_id <= 0:
+        raise HTTPException(status_code=400, detail="ID laporan tidak valid.")
+
+    validated = LogCreate(
+        student_id=student_id,
+        date=date,
+        attendance_status=attendance_status,
+        topic=topic,
+        score=score if score.strip() else None,
+        notes=notes,
+    )
+
+    new_proof_path: Optional[str] = None
+    has_new_file = bool(proof_file and proof_file.filename)
+
+    if has_new_file:
+        file_bytes = await proof_file.read()
+        if len(file_bytes) > MAX_IMAGE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ukuran foto terlalu besar (maksimal 3 MB).",
+            )
+        detected = detect_image_type(file_bytes)
+        if not detected:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Format file harus berupa gambar JPG, PNG, atau WEBP.",
+            )
+        content_type, ext = detected
+        new_proof_path = upload_proof_to_supabase(file_bytes, content_type, ext)
+
+    conn = get_db()
+    cur = conn.cursor()
+    old_proof_path: Optional[str] = None
+    try:
+        cur.execute("SELECT proof_path FROM learning_logs WHERE id = %s", (log_id,))
+        existing = cur.fetchone()
+        if not existing:
+            delete_proof_from_supabase(new_proof_path)
+            raise HTTPException(status_code=404, detail="Laporan tidak ditemukan.")
+
+        old_proof_path = existing.get("proof_path")
+
+        if has_new_file:
+            final_proof_path = new_proof_path
+        elif remove_proof:
+            final_proof_path = None
+        else:
+            final_proof_path = old_proof_path
+
+        clean_topic = (validated.topic or "").strip() if validated.attendance_status == "Hadir" else "-"
+        clean_score = validated.score if validated.attendance_status == "Hadir" else None
+        clean_notes = (validated.notes or "").strip()
+
+        cur.execute(
+            """
+            UPDATE learning_logs
+            SET student_id = %s,
+                date = %s,
+                attendance_status = %s,
+                topic = %s,
+                score = %s,
+                notes = %s,
+                proof_path = %s
+            WHERE id = %s
+            """,
+            (
+                validated.student_id,
+                validated.date,
+                validated.attendance_status,
+                clean_topic,
+                clean_score,
+                clean_notes,
+                final_proof_path,
+                log_id,
+            ),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        delete_proof_from_supabase(new_proof_path)
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
+    # Hapus foto lama di Supabase Storage jika diganti foto baru atau dihapus
+    if old_proof_path and (has_new_file or remove_proof):
+        delete_proof_from_supabase(old_proof_path)
+
+    return {"status": "updated"}
 
 @app.delete("/api/admin/logs/{log_id}", dependencies=[Depends(verify_teacher)])
 def delete_log(log_id: int):

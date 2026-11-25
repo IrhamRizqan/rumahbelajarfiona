@@ -445,9 +445,96 @@
         </div>
     </div>
 
+    <!-- MODAL EDIT LAPORAN BELAJAR -->
+    <div id="edit-log-modal" class="modal-backdrop hidden" onclick="if(event.target === this) closeEditModal()">
+        <div class="modal-card modal-card-scroll">
+            <div class="modal-header">
+                <div class="modal-title">Edit Laporan Belajar</div>
+                <button type="button" class="secondary" style="width: auto; padding: 6px 12px; font-size: 0.8rem;"
+                    onclick="closeEditModal()">Batal</button>
+            </div>
+
+            <input type="hidden" id="edit-log-id" />
+
+            <label for="edit-student">Murid</label>
+            <select id="edit-student"></select>
+
+            <label for="edit-date">Tanggal Pertemuan</label>
+            <input type="date" id="edit-date" />
+
+            <label for="edit-status">Status Kehadiran</label>
+            <select id="edit-status" onchange="toggleEditHadirFields()">
+                <option value="Hadir">Hadir</option>
+                <option value="Izin">Izin</option>
+                <option value="Sakit">Sakit</option>
+                <option value="Alpa">Alpa (Tanpa Keterangan)</option>
+            </select>
+
+            <div id="edit-hadir-only-fields">
+                <label for="edit-topic">Materi yang Dipelajari</label>
+                <input type="text" id="edit-topic" placeholder="Misal: Matematika - Satuan Berat & Panjang" />
+
+                <label for="edit-score">Predikat Nilai (Opsional)</label>
+                <select id="edit-score">
+                    <option value="">-- Tidak ada penilaian --</option>
+                    <option value="A">A (Sangat Baik)</option>
+                    <option value="B">B (Baik)</option>
+                    <option value="C">C (Cukup)</option>
+                </select>
+            </div>
+
+            <label for="edit-notes">Catatan Perkembangan / Keterangan</label>
+            <textarea id="edit-notes" rows="3"
+                placeholder="Catatan untuk orang tua atau alasan tidak masuk..."></textarea>
+
+            <label>Bukti Absensi (Opsional)</label>
+            <div class="proof-upload-box">
+                <div id="edit-existing-proof-bar" class="proof-preview-wrap hidden"
+                    style="margin-top: 0; margin-bottom: 10px; justify-content: space-between;">
+                    <span style="font-size: 0.82rem; font-weight: 700; color: var(--purple-dark);">
+                        Foto bukti tersimpan
+                    </span>
+                    <button type="button" class="danger" onclick="markRemoveExistingProof()">Hapus Foto Lama</button>
+                </div>
+
+                <input type="file" id="edit-proof-camera" accept="image/*" capture="environment" class="hidden"
+                    onchange="handleEditProofChange(this)" />
+                <input type="file" id="edit-proof-file" accept="image/*" class="hidden"
+                    onchange="handleEditProofChange(this)" />
+
+                <div class="proof-btn-row">
+                    <button type="button" class="proof-pick-btn"
+                        onclick="document.getElementById('edit-proof-camera').click()">
+                        Ambil Foto Baru
+                    </button>
+                    <button type="button" class="proof-pick-btn"
+                        onclick="document.getElementById('edit-proof-file').click()">
+                        Pilih File Baru
+                    </button>
+                </div>
+
+                <div id="edit-proof-preview-container" class="proof-preview-wrap hidden">
+                    <img id="edit-proof-preview-img" class="proof-preview-thumb" alt="Preview Bukti Baru" />
+                    <div style="flex: 1; min-width: 0;">
+                        <div id="edit-proof-preview-name"
+                            style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        </div>
+                        <div id="edit-proof-preview-size" style="font-size: 0.75rem; color: var(--text-muted);"></div>
+                    </div>
+                    <button type="button" class="danger" onclick="clearEditProofFile()">Batal</button>
+                </div>
+            </div>
+
+            <button type="button" id="btn-save-edit-log" onclick="submitEditLog()">Simpan Perubahan</button>
+        </div>
+    </div>
+
     <script>
         let teacherToken = localStorage.getItem("teacher_token") || "";
         let selectedProofBlob = null;
+        let adminLogsCache = [];
+        let editProofBlob = null;
+        let editRemoveExistingProof = false;
 
         document.getElementById("input-date").valueAsDate = new Date();
 
@@ -782,6 +869,7 @@
                 return;
             }
             const data = await res.json();
+            adminLogsCache = data.logs;
 
             document.getElementById("admin-stat-students").textContent = data.students.length;
             document.getElementById("admin-stat-sessions").textContent = data.logs.length;
@@ -827,12 +915,16 @@
                     `;
                 }).join("");
 
-            const selectEl = document.getElementById("input-student");
-            const prevVal = selectEl.value;
-            selectEl.innerHTML = data.students
+            const studentOptionsHtml = data.students
                 .map(s => `<option value="${Number(s.id)}">${escapeHtml(s.name)}</option>`)
                 .join("");
+
+            const selectEl = document.getElementById("input-student");
+            const prevVal = selectEl.value;
+            selectEl.innerHTML = studentOptionsHtml;
             if (prevVal) selectEl.value = prevVal;
+
+            document.getElementById("edit-student").innerHTML = studentOptionsHtml;
 
             const logsEl = document.getElementById("admin-logs-list");
             logsEl.innerHTML = data.logs.length === 0
@@ -855,7 +947,11 @@
                               <span class="badge ${badgeClass}">${escapeHtml(l.attendance_status)}</span>
                               ${l.score !== null ? `<span class="badge badge-score">Nilai: ${escapeHtml(l.score)}</span>` : ""}
                             </div>
-                            <button class="danger" onclick="deleteLog(${safeId}, this)">Hapus</button>
+                            <!-- 3. Tambah tombol Edit di sebelah tombol Hapus -->
+                            <div class="log-action-group">
+                              <button type="button" class="btn-edit" onclick="openEditModal(${safeId})">Edit</button>
+                              <button type="button" class="danger" onclick="deleteLog(${safeId}, this)">Hapus</button>
+                            </div>
                           </div>
                           ${isHadir ? `<div class="timeline-title">${escapeHtml(l.topic || "-")}</div>` : ""}
                           ${l.notes ? `<div class="timeline-notes">${escapeHtml(l.notes)}</div>` : ""}
@@ -941,6 +1037,124 @@
                 }
                 await loadAdminData();
                 showAdminNotif("success", "Catatan pertemuan dihapus.");
+            } catch (err) {
+                showAdminNotif("error", "Gagal terhubung ke server.", err.message);
+            } finally {
+                setBtnLoading(btn, false);
+            }
+        }
+
+        function toggleEditHadirFields() {
+            const status = document.getElementById("edit-status").value;
+            const fields = document.getElementById("edit-hadir-only-fields");
+            if (status === "Hadir") {
+                fields.classList.remove("hidden");
+            } else {
+                fields.classList.add("hidden");
+            }
+        }
+
+        function openEditModal(logId) {
+            const log = adminLogsCache.find(item => Number(item.id) === Number(logId));
+            if (!log) return;
+
+            editProofBlob = null;
+            editRemoveExistingProof = false;
+            clearEditProofFile();
+
+            document.getElementById("edit-log-id").value = Number(log.id);
+            document.getElementById("edit-student").value = Number(log.student_id);
+            document.getElementById("edit-date").value = String(log.date).slice(0, 10);
+            document.getElementById("edit-status").value = log.attendance_status;
+            document.getElementById("edit-topic").value = (log.attendance_status === "Hadir" && log.topic !== "-") ? (log.topic || "") : "";
+            document.getElementById("edit-score").value = log.score || "";
+            document.getElementById("edit-notes").value = log.notes || "";
+
+            const existingBar = document.getElementById("edit-existing-proof-bar");
+            if (log.has_proof) {
+                existingBar.classList.remove("hidden");
+            } else {
+                existingBar.classList.add("hidden");
+            }
+
+            toggleEditHadirFields();
+            document.getElementById("edit-log-modal").classList.remove("hidden");
+        }
+
+        function closeEditModal() {
+            document.getElementById("edit-log-modal").classList.add("hidden");
+            clearEditProofFile();
+        }
+
+        function markRemoveExistingProof() {
+            editRemoveExistingProof = true;
+            document.getElementById("edit-existing-proof-bar").classList.add("hidden");
+        }
+
+        async function handleEditProofChange(inputEl) {
+            const file = inputEl.files && inputEl.files[0];
+            if (!file) return;
+
+            const compressed = await compressImageFile(file);
+            if (compressed.size > 3 * 1024 * 1024) {
+                alert("Ukuran foto terlalu besar (maksimal 3 MB).");
+                clearEditProofFile();
+                return;
+            }
+
+            editProofBlob = compressed;
+            editRemoveExistingProof = false;
+            document.getElementById("edit-existing-proof-bar").classList.add("hidden");
+
+            const previewUrl = URL.createObjectURL(compressed);
+            document.getElementById("edit-proof-preview-img").src = previewUrl;
+            document.getElementById("edit-proof-preview-name").textContent = file.name || "foto_baru.jpg";
+            document.getElementById("edit-proof-preview-size").textContent = `${Math.round(compressed.size / 1024)} KB`;
+            document.getElementById("edit-proof-preview-container").classList.remove("hidden");
+        }
+
+        function clearEditProofFile() {
+            editProofBlob = null;
+            document.getElementById("edit-proof-camera").value = "";
+            document.getElementById("edit-proof-file").value = "";
+            document.getElementById("edit-proof-preview-container").classList.add("hidden");
+            document.getElementById("edit-proof-preview-img").removeAttribute("src");
+        }
+
+        async function submitEditLog() {
+            const btn = document.getElementById("btn-save-edit-log");
+            const logId = Number(document.getElementById("edit-log-id").value);
+
+            const formData = new FormData();
+            formData.append("student_id", document.getElementById("edit-student").value);
+            formData.append("date", document.getElementById("edit-date").value);
+            formData.append("attendance_status", document.getElementById("edit-status").value);
+            formData.append("topic", document.getElementById("edit-topic").value.trim());
+            formData.append("score", document.getElementById("edit-score").value);
+            formData.append("notes", document.getElementById("edit-notes").value.trim());
+            formData.append("remove_proof", editRemoveExistingProof ? "true" : "false");
+
+            if (editProofBlob) {
+                formData.append("proof_file", editProofBlob, "bukti_absensi.jpg");
+            }
+
+            setBtnLoading(btn, true, "Menyimpan...");
+            try {
+                const res = await fetch(`/api/admin/logs/${logId}`, {
+                    method: "PUT",
+                    headers: { "X-Teacher-Pin": teacherToken },
+                    body: formData
+                });
+
+                if (!res.ok) {
+                    const errDetail = await parseErrorResponse(res);
+                    showAdminNotif("error", "Gagal memperbarui laporan.", errDetail);
+                    return;
+                }
+
+                closeEditModal();
+                await loadAdminData();
+                showAdminNotif("success", "Laporan berhasil diperbarui!");
             } catch (err) {
                 showAdminNotif("error", "Gagal terhubung ke server.", err.message);
             } finally {

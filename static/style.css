@@ -853,3 +853,29 @@ button.link-btn:hover {
     border-radius: 12px;
     background: #f8fafc;
 }
+
+/* ================= EDIT LAPORAN & ACTION GROUP ================= */
+.log-action-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+button.btn-edit {
+    width: auto;
+    background: var(--primary-soft);
+    color: var(--purple-dark);
+    padding: 5px 10px;
+    font-size: 0.76rem;
+    border-radius: 8px;
+}
+
+button.btn-edit:hover {
+    background: #ddd6fe;
+}
+
+.modal-card-scroll {
+    max-height: 88vh;
+    overflow-y: auto;
+}
