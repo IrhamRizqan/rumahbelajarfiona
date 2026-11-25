@@ -1,8 +1,12 @@
 import os
+import json
 import time
+import uuid
 import hmac
 import hashlib
 import secrets
+import urllib.request
+import urllib.error
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
@@ -10,7 +14,7 @@ from typing import Optional, Literal
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, HTTPException, Header, Depends, status, Request
+from fastapi import FastAPI, HTTPException, Header, Depends, status, Request, Form, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -18,7 +22,6 @@ from pydantic import BaseModel, Field, field_validator
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
-# Nonaktifkan dokumentasi Swagger/OpenAPI publik di production
 app = FastAPI(
     title="Portal Les Privat Kak Fiona",
     docs_url=None,
@@ -28,9 +31,17 @@ app = FastAPI(
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 TEACHER_PIN = os.getenv("TEACHER_PIN", "").strip()
-SESSION_TTL_SECONDS = 7 * 24 * 3600  # Sesi login guru berlaku 7 hari
+_raw_supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+for _suffix in ("/rest/v1", "/storage/v1"):
+    if _raw_supabase_url.endswith(_suffix):
+        _raw_supabase_url = _raw_supabase_url[: -len(_suffix)]
+SUPABASE_URL = _raw_supabase_url
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+STORAGE_BUCKET = "attendance-proofs"
+SESSION_TTL_SECONDS = 7 * 24 * 3600
+MAX_IMAGE_BYTES = 3 * 1024 * 1024  # Maksimal 3 MB setelah kompresi browser
 
-# --- In-Memory Rate Limiter (Per IP dalam container aktif) ---
+# --- In-Memory Rate Limiter ---
 _rate_buckets: dict[str, list[float]] = defaultdict(list)
 
 
@@ -54,7 +65,7 @@ def enforce_rate_limit(request: Request, scope: str, max_hits: int, window_sec: 
     _rate_buckets[key] = timestamps
 
 
-# --- Token Sesi HMAC-SHA256 (Pengganti menyimpan PIN mentah di browser) ---
+# --- Token Sesi HMAC-SHA256 ---
 def _require_configured_pin() -> str:
     if not TEACHER_PIN:
         raise HTTPException(
@@ -88,6 +99,93 @@ def is_valid_session_token(token: Optional[str]) -> bool:
         return False
 
 
+# --- Helper Supabase Storage (Ringan tanpa SDK eksternal) ---
+def detect_image_type(data: bytes) -> Optional[tuple[str, str]]:
+    if data[:3] == b"\xff\xd8\xff":
+        return ("image/jpeg", "jpg")
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return ("image/png", "png")
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ("image/webp", "webp")
+    return None
+
+
+def upload_proof_to_supabase(file_bytes: bytes, content_type: str, ext: str) -> str:
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Konfigurasi SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum diatur di server.",
+        )
+
+    object_path = f"{datetime.now(timezone.utc).strftime('%Y/%m')}/{uuid.uuid4().hex}.{ext}"
+    url = f"{SUPABASE_URL}/storage/v1/object/{STORAGE_BUCKET}/{object_path}"
+    req = urllib.request.Request(
+        url,
+        data=file_bytes,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Content-Type": content_type,
+            "x-upsert": "true",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            if resp.status not in (200, 201):
+                raise RuntimeError(f"Storage status {resp.status}")
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"Gagal upload ke Supabase Storage ({e.code}): {err_body}")
+
+    return object_path
+
+
+def create_signed_proof_url(object_path: str, expires_in: int = 300) -> str:
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=503, detail="Konfigurasi Storage belum diatur.")
+
+    url = f"{SUPABASE_URL}/storage/v1/object/sign/{STORAGE_BUCKET}/{object_path}"
+    body = json.dumps({"expiresIn": expires_in}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Content-Type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+        signed_rel = payload.get("signedURL") or payload.get("signedUrl")
+        if not signed_rel:
+            raise RuntimeError("Signed URL tidak ditemukan dari respons Supabase.")
+        if signed_rel.startswith("http"):
+            return signed_rel
+        return f"{SUPABASE_URL}/storage/v1{signed_rel}"
+
+
+def delete_proof_from_supabase(object_path: Optional[str]):
+    if not object_path or not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return
+    url = f"{SUPABASE_URL}/storage/v1/object/{STORAGE_BUCKET}/{object_path}"
+    req = urllib.request.Request(
+        url,
+        method="DELETE",
+        headers={
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+    except Exception:
+        pass
+
+
 # --- Security Headers Middleware ---
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -95,13 +193,13 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=()"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://vercel.live; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://vercel.live; "
         "font-src 'self' https://fonts.gstatic.com https://vercel.live; "
-        "img-src 'self' data: https://vercel.live; "
+        "img-src 'self' data: blob: https://*.supabase.co https://vercel.live; "
         "connect-src 'self' https://vercel.live wss://ws-us3.pusher.com; "
         "frame-src 'self' https://vercel.live; "
         "frame-ancestors 'none'; "
@@ -111,7 +209,6 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
-# --- Global Exception Handler (Detail error hanya untuk Guru terautentikasi) ---
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     token = request.headers.get("x-teacher-pin")
@@ -132,7 +229,7 @@ def get_db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
-# --- Schemas dengan Validasi Ketat ---
+# --- Schemas ---
 class TeacherLogin(BaseModel):
     pin: str = Field(..., min_length=4, max_length=64)
 
@@ -170,7 +267,6 @@ class ScheduleUpdate(BaseModel):
     )
 
 
-# --- Auth Dependency ---
 def verify_teacher(request: Request, x_teacher_pin: str = Header(None)):
     enforce_rate_limit(request, "admin_api", max_hits=60, window_sec=60)
     if not is_valid_session_token(x_teacher_pin):
@@ -207,7 +303,7 @@ def get_parent_portal(access_code: str, request: Request):
         )
         student = cur.fetchone()
         if not student:
-            time.sleep(0.4)  # Perlambat upaya tebak kode akses
+            time.sleep(0.4)
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Kode akses murid tidak ditemukan.",
@@ -215,14 +311,19 @@ def get_parent_portal(access_code: str, request: Request):
 
         cur.execute(
             """
-            SELECT id, date, logged_at, attendance_status, topic, score, notes
+            SELECT id, date, logged_at, attendance_status, topic, score, notes, proof_path
             FROM learning_logs
             WHERE student_id = %s
             ORDER BY date DESC, id DESC
             """,
             (student["id"],),
         )
-        logs = [dict(row) for row in cur.fetchall()]
+        raw_logs = cur.fetchall()
+        logs = []
+        for row in raw_logs:
+            item = dict(row)
+            item["has_proof"] = bool(item.pop("proof_path", None))
+            logs.append(item)
     finally:
         cur.close()
         conn.close()
@@ -259,6 +360,37 @@ def get_parent_portal(access_code: str, request: Request):
     }
 
 
+@app.get("/api/portal/{access_code}/proof/{log_id}")
+def get_parent_proof_photo(access_code: str, log_id: int, request: Request):
+    enforce_rate_limit(request, "parent_proof", max_hits=30, window_sec=60)
+    cleaned_code = access_code.strip()
+    if not cleaned_code or len(cleaned_code) > 32 or log_id <= 0:
+        raise HTTPException(status_code=400, detail="Permintaan tidak valid.")
+
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT l.proof_path
+            FROM learning_logs l
+            JOIN students s ON l.student_id = s.id
+            WHERE l.id = %s AND UPPER(s.access_code) = UPPER(%s)
+            """,
+            (log_id, cleaned_code),
+        )
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
+
+    if not row or not row.get("proof_path"):
+        raise HTTPException(status_code=404, detail="Bukti absensi tidak ditemukan.")
+
+    signed_url = create_signed_proof_url(row["proof_path"], expires_in=300)
+    return {"url": signed_url}
+
+
 # --- Teacher Admin Endpoints ---
 @app.post("/api/admin/login")
 def teacher_login(payload: TeacherLogin, request: Request):
@@ -266,7 +398,7 @@ def teacher_login(payload: TeacherLogin, request: Request):
     secret_pin = _require_configured_pin()
 
     if not secrets.compare_digest(payload.pin.strip(), secret_pin):
-        time.sleep(0.6)  # Mitigasi brute-force PIN
+        time.sleep(0.6)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="PIN Guru salah.",
@@ -291,7 +423,11 @@ def admin_overview():
             ORDER BY l.date DESC, l.id DESC
             """
         )
-        logs = [dict(row) for row in cur.fetchall()]
+        logs = []
+        for row in cur.fetchall():
+            item = dict(row)
+            item["has_proof"] = bool(item.pop("proof_path", None))
+            logs.append(item)
     finally:
         cur.close()
         conn.close()
@@ -299,34 +435,94 @@ def admin_overview():
     return {"students": students, "logs": logs}
 
 
-@app.post("/api/admin/logs", dependencies=[Depends(verify_teacher)])
-def create_log(payload: LogCreate):
+@app.get("/api/admin/logs/{log_id}/proof", dependencies=[Depends(verify_teacher)])
+def get_admin_proof_photo(log_id: int):
+    if log_id <= 0:
+        raise HTTPException(status_code=400, detail="ID laporan tidak valid.")
+
     conn = get_db()
     cur = conn.cursor()
     try:
-        topic = (payload.topic or "").strip() if payload.attendance_status == "Hadir" else "-"
-        score = payload.score if payload.attendance_status == "Hadir" else None
-        notes = (payload.notes or "").strip()
+        cur.execute("SELECT proof_path FROM learning_logs WHERE id = %s", (log_id,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
+
+    if not row or not row.get("proof_path"):
+        raise HTTPException(status_code=404, detail="Bukti absensi tidak ditemukan.")
+
+    signed_url = create_signed_proof_url(row["proof_path"], expires_in=300)
+    return {"url": signed_url}
+
+
+@app.post("/api/admin/logs", dependencies=[Depends(verify_teacher)])
+async def create_log(
+    student_id: int = Form(...),
+    date: str = Form(...),
+    attendance_status: str = Form(...),
+    topic: str = Form(""),
+    score: str = Form(""),
+    notes: str = Form(""),
+    proof_file: Optional[UploadFile] = File(None),
+):
+    validated = LogCreate(
+        student_id=student_id,
+        date=date,
+        attendance_status=attendance_status,
+        topic=topic,
+        score=score if score.strip() else None,
+        notes=notes,
+    )
+
+    proof_path: Optional[str] = None
+    if proof_file and proof_file.filename:
+        file_bytes = await proof_file.read()
+        if len(file_bytes) > MAX_IMAGE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ukuran foto terlalu besar (maksimal 3 MB).",
+            )
+        detected = detect_image_type(file_bytes)
+        if not detected:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Format file harus berupa gambar JPG, PNG, atau WEBP.",
+            )
+        content_type, ext = detected
+        proof_path = upload_proof_to_supabase(file_bytes, content_type, ext)
+
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        clean_topic = (validated.topic or "").strip() if validated.attendance_status == "Hadir" else "-"
+        clean_score = validated.score if validated.attendance_status == "Hadir" else None
+        clean_notes = (validated.notes or "").strip()
 
         wib = timezone(timedelta(hours=7))
         current_time_str = datetime.now(wib).strftime("%H:%M")
 
         cur.execute(
             """
-            INSERT INTO learning_logs (student_id, date, logged_at, attendance_status, topic, score, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO learning_logs (student_id, date, logged_at, attendance_status, topic, score, notes, proof_path)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
-                payload.student_id,
-                payload.date,
+                validated.student_id,
+                validated.date,
                 current_time_str,
-                payload.attendance_status,
-                topic,
-                score,
-                notes,
+                validated.attendance_status,
+                clean_topic,
+                clean_score,
+                clean_notes,
+                proof_path,
             ),
         )
         conn.commit()
+    except Exception:
+        conn.rollback()
+        delete_proof_from_supabase(proof_path)
+        raise
     finally:
         cur.close()
         conn.close()
@@ -341,13 +537,20 @@ def delete_log(log_id: int):
 
     conn = get_db()
     cur = conn.cursor()
+    proof_path = None
     try:
+        cur.execute("SELECT proof_path FROM learning_logs WHERE id = %s", (log_id,))
+        row = cur.fetchone()
+        if row:
+            proof_path = row.get("proof_path")
+
         cur.execute("DELETE FROM learning_logs WHERE id = %s", (log_id,))
         conn.commit()
     finally:
         cur.close()
         conn.close()
 
+    delete_proof_from_supabase(proof_path)
     return {"status": "deleted"}
 
 

@@ -735,3 +735,121 @@ button.link-btn:hover {
         display: none;
     }
 }
+
+/* ================= UPLOAD & MODAL BUKTI ABSENSI ================= */
+.proof-upload-box {
+    border: 1.5px dashed var(--border-soft);
+    background: #faf5ff;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 16px;
+}
+
+.proof-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.proof-pick-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #ffffff;
+    color: var(--purple-dark);
+    border: 1.5px solid var(--border-soft);
+    border-radius: 12px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.proof-pick-btn:hover {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+}
+
+.proof-preview-wrap {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #ffffff;
+    border: 1px solid var(--border-soft);
+    padding: 8px 10px;
+    border-radius: 12px;
+}
+
+.proof-preview-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.proof-view-btn {
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 6px 12px;
+    background: var(--primary-soft);
+    color: var(--purple-dark);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.proof-view-btn:hover {
+    background: var(--primary);
+    color: #ffffff;
+}
+
+/* Modal Lightbox */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 27, 75, 0.65);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 100;
+}
+
+.modal-card {
+    background: #ffffff;
+    border: 1.5px solid var(--border-soft);
+    border-radius: 20px;
+    max-width: 520px;
+    width: 100%;
+    padding: 18px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.modal-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--purple-dark);
+}
+
+.modal-img {
+    width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    border-radius: 12px;
+    background: #f8fafc;
+}

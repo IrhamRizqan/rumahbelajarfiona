@@ -366,7 +366,47 @@
                 <label for="input-notes">Catatan Perkembangan / Keterangan</label>
                 <textarea id="input-notes" rows="3"
                     placeholder="Catatan untuk orang tua atau alasan tidak masuk..."></textarea>
+                <label>Bukti Absensi (Opsional)</label>
+                <div class="proof-upload-box">
+                    <input type="file" id="input-proof-camera" accept="image/*" capture="environment" class="hidden"
+                        onchange="handleProofFileChange(this)" />
+                    <input type="file" id="input-proof-file" accept="image/*" class="hidden"
+                        onchange="handleProofFileChange(this)" />
 
+                    <div class="proof-btn-row">
+                        <button type="button" class="proof-pick-btn"
+                            onclick="document.getElementById('input-proof-camera').click()">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.2">
+                                <path
+                                    d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                <circle cx="12" cy="13" r="4" />
+                            </svg>
+                            Ambil Foto
+                        </button>
+                        <button type="button" class="proof-pick-btn"
+                            onclick="document.getElementById('input-proof-file').click()">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <polyline points="21 15 16 10 5 21" />
+                            </svg>
+                            Pilih File
+                        </button>
+                    </div>
+
+                    <div id="proof-preview-container" class="proof-preview-wrap hidden">
+                        <img id="proof-preview-img" class="proof-preview-thumb" alt="Preview Bukti" />
+                        <div style="flex: 1; min-width: 0;">
+                            <div id="proof-preview-name"
+                                style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            </div>
+                            <div id="proof-preview-size" style="font-size: 0.75rem; color: var(--text-muted);"></div>
+                        </div>
+                        <button type="button" class="danger" onclick="clearProofFile()">Hapus</button>
+                    </div>
+                </div>
                 <button onclick="submitNewLog()">Simpan Laporan</button>
             </div>
 
@@ -393,8 +433,21 @@
         </main>
     </div>
 
+    <!-- MODAL LIHAT BUKTI ABSENSI -->
+    <div id="proof-modal" class="modal-backdrop hidden" onclick="if(event.target === this) closeProofModal()">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title" id="proof-modal-title">Bukti Absensi</div>
+                <button type="button" class="secondary" style="width: auto; padding: 6px 12px; font-size: 0.8rem;"
+                    onclick="closeProofModal()">Tutup</button>
+            </div>
+            <img id="proof-modal-img" class="modal-img" alt="Bukti Absensi" />
+        </div>
+    </div>
+
     <script>
         let teacherToken = localStorage.getItem("teacher_token") || "";
+        let selectedProofBlob = null;
 
         document.getElementById("input-date").valueAsDate = new Date();
 
@@ -408,6 +461,108 @@
                 "'": "\u0026#39;"
             };
             return String(value).replace(/[&<>"']/g, ch => map[ch]);
+        }
+
+        async function compressImageFile(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const objectUrl = URL.createObjectURL(file);
+                img.onload = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    const maxDim = 1280;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+
+                    const canvas = document.createElement("canvas");
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob(
+                        (blob) => resolve(blob || file),
+                        "image/jpeg",
+                        0.78
+                    );
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    resolve(file);
+                };
+                img.src = objectUrl;
+            });
+        }
+
+        async function handleProofFileChange(inputEl) {
+            const file = inputEl.files && inputEl.files[0];
+            if (!file) return;
+
+            const compressed = await compressImageFile(file);
+            if (compressed.size > 3 * 1024 * 1024) {
+                showAdminNotif("error", "Ukuran foto terlalu besar (maksimal 3 MB).");
+                clearProofFile();
+                return;
+            }
+
+            selectedProofBlob = compressed;
+            const previewUrl = URL.createObjectURL(compressed);
+            document.getElementById("proof-preview-img").src = previewUrl;
+            document.getElementById("proof-preview-name").textContent = file.name || "foto_absensi.jpg";
+            document.getElementById("proof-preview-size").textContent = `${Math.round(compressed.size / 1024)} KB`;
+            document.getElementById("proof-preview-container").classList.remove("hidden");
+        }
+
+        function clearProofFile() {
+            selectedProofBlob = null;
+            document.getElementById("input-proof-camera").value = "";
+            document.getElementById("input-proof-file").value = "";
+            document.getElementById("proof-preview-container").classList.add("hidden");
+            document.getElementById("proof-preview-img").removeAttribute("src");
+        }
+
+        async function openProofModal(role, logId, btn) {
+            setBtnLoading(btn, true, "Memuat Foto...");
+            try {
+                let res;
+                if (role === "parent") {
+                    const code = localStorage.getItem("parent_code") || "";
+                    res = await fetch(`/api/portal/${encodeURIComponent(code)}/proof/${Number(logId)}`);
+                } else {
+                    res = await fetch(`/api/admin/logs/${Number(logId)}/proof`, {
+                        headers: { "X-Teacher-Pin": teacherToken }
+                    });
+                }
+
+                if (!res.ok) {
+                    const msg = await parseErrorResponse(res);
+                    alert(msg);
+                    return;
+                }
+                const data = await res.json();
+                if (data.url && data.url.startsWith("https://")) {
+                    document.getElementById("proof-modal-img").src = data.url;
+                    document.getElementById("proof-modal").classList.remove("hidden");
+                }
+            } catch (err) {
+                alert("Gagal memuat foto bukti absensi.");
+            } finally {
+                setBtnLoading(btn, false);
+            }
+        }
+
+        function closeProofModal() {
+            document.getElementById("proof-modal").classList.add("hidden");
+            document.getElementById("proof-modal-img").removeAttribute("src");
         }
 
         function setBtnLoading(btn, isLoading, loadingText = "Memproses...") {
@@ -513,7 +668,11 @@
                             ? `<div class="timeline-notes">Catatan: ${escapeHtml(log.notes)}</div>`
                             : "";
                         const timeText = log.logged_at ? ` • ${escapeHtml(log.logged_at)}` : "";
-
+                        const proofBtnHtml = log.has_proof ? `<button type="button" class="proof-view-btn" onclick="openProofModal('parent', ${Number(log.id)}, this)">
+         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+         Lihat Bukti Absensi
+       </button>`
+                            : "";
                         return `
                           <div class="timeline-item">
                             <div class="timeline-dot ${dotClass}">
@@ -527,6 +686,7 @@
                               </div>
                               <div class="timeline-title">${escapeHtml(titleText)}</div>
                               ${notesHtml}
+                              ${proofBtnHtml}
                             </div>
                           </div>
                         `;
@@ -699,6 +859,7 @@
                           </div>
                           ${isHadir ? `<div class="timeline-title">${escapeHtml(l.topic || "-")}</div>` : ""}
                           ${l.notes ? `<div class="timeline-notes">${escapeHtml(l.notes)}</div>` : ""}
+                          ${l.has_proof ? `<button type="button" class="proof-view-btn" onclick="openProofModal('admin', ${safeId}, this)">Lihat Bukti Absensi</button>` : ""}
                         </div>
                       </div>
                     `;
@@ -723,26 +884,27 @@
         }
 
         async function submitNewLog() {
-            const btn = document.querySelector("#admin-tab-input button");
-            const scoreVal = document.getElementById("input-score").value;
-            const payload = {
-                student_id: parseInt(document.getElementById("input-student").value, 10),
-                date: document.getElementById("input-date").value,
-                attendance_status: document.getElementById("input-status").value,
-                topic: document.getElementById("input-topic").value.trim(),
-                score: scoreVal ? scoreVal : null,
-                notes: document.getElementById("input-notes").value.trim()
-            };
+            const btn = document.querySelector("#admin-tab-input button:not(.proof-pick-btn):not(.danger)");
+            const formData = new FormData();
+            formData.append("student_id", document.getElementById("input-student").value);
+            formData.append("date", document.getElementById("input-date").value);
+            formData.append("attendance_status", document.getElementById("input-status").value);
+            formData.append("topic", document.getElementById("input-topic").value.trim());
+            formData.append("score", document.getElementById("input-score").value);
+            formData.append("notes", document.getElementById("input-notes").value.trim());
+
+            if (selectedProofBlob) {
+                formData.append("proof_file", selectedProofBlob, "bukti_absensi.jpg");
+            }
 
             setBtnLoading(btn, true, "Menyimpan...");
             try {
                 const res = await fetch("/api/admin/logs", {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json",
                         "X-Teacher-Pin": teacherToken
                     },
-                    body: JSON.stringify(payload)
+                    body: formData
                 });
 
                 if (!res.ok) {
@@ -754,6 +916,7 @@
                 document.getElementById("input-topic").value = "";
                 document.getElementById("input-score").value = "";
                 document.getElementById("input-notes").value = "";
+                clearProofFile();
                 await loadAdminData();
                 switchAdminTab("overview");
                 showAdminNotif("success", "Laporan tersimpan!");
@@ -763,7 +926,6 @@
                 setBtnLoading(btn, false);
             }
         }
-
         async function deleteLog(id, btn) {
             if (!confirm("Hapus catatan pertemuan ini?")) return;
             setBtnLoading(btn, true, "Menghapus...");
